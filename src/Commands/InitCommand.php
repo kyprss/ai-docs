@@ -9,9 +9,10 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 
-class InitCommand extends Command
+final class InitCommand extends Command
 {
     protected static $defaultName = 'init';
+
     protected static $defaultDescription = 'Initialize AI Docs configuration';
 
     public function __construct()
@@ -24,31 +25,33 @@ class InitCommand extends Command
     {
         $io = new SymfonyStyle($input, $output);
 
-        $configPath = getcwd() . '/ai-docs.json';
+        $configPath = getcwd().'/ai-docs.json';
 
         if (file_exists($configPath)) {
             $io->warning('Configuration file ai-docs.json already exists.');
+
             return Command::SUCCESS;
         }
 
         $config = [
             'config' => [
-                'target_path' => '.ai/docs/'
+                'target_path' => '.ai/docs/',
             ],
             'sources' => [
                 'laravel' => [
                     'type' => 'repository',
                     'url' => 'git@github.com:laravel/docs.git',
                     'branch' => '11.x',
-                    'files' => ['*.md']
-                ]
-            ]
+                    'files' => ['*.md'],
+                ],
+            ],
         ];
 
         if (file_put_contents($configPath, json_encode($config, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)) !== false) {
             $io->success('Configuration file ai-docs.json created successfully.');
         } else {
             $io->error('Failed to create configuration file.');
+
             return Command::FAILURE;
         }
 

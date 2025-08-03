@@ -1,7 +1,7 @@
 {
     "name": "kypress/ai-docs",
     "description": "An easy tool to download the latest documentation from a git repository",
-    "version": "1.0.0-alpha1",
+    "version": "1.0.0-alpha2",
     "type": "library",
     "license": "MIT",
     "require": {
@@ -9,6 +9,9 @@
         "symfony/console": "^7.0",
         "symfony/filesystem": "^7.0",
         "symfony/process": "^7.0"
+    },
+    "require-dev": {
+        "laravel/pint": "^1.24"
     },
     "autoload": {
         "psr-4": {

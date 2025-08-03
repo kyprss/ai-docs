@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Kyprss\AiDocs\Commands;
 
+use DirectoryIterator;
+use RecursiveDirectoryIterator;
+use RecursiveIteratorIterator;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
@@ -11,9 +14,10 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 use Symfony\Component\Filesystem\Filesystem;
 use Symfony\Component\Process\Process;
 
-class SyncCommand extends Command
+final class SyncCommand extends Command
 {
     protected static $defaultName = 'sync';
+
     protected static $defaultDescription = 'Sync documentation from configured sources';
 
     private Filesystem $filesystem;
@@ -29,17 +33,19 @@ class SyncCommand extends Command
     {
         $io = new SymfonyStyle($input, $output);
 
-        $configPath = getcwd() . '/ai-docs.json';
+        $configPath = getcwd().'/ai-docs.json';
 
-        if (!file_exists($configPath)) {
+        if (! file_exists($configPath)) {
             $io->error('Configuration file ai-docs.json not found. Run "ai-docs init" first.');
+
             return Command::FAILURE;
         }
 
         $config = json_decode(file_get_contents($configPath), true);
 
-        if (!$config) {
+        if (! $config) {
             $io->error('Invalid configuration file.');
+
             return Command::FAILURE;
         }
 
@@ -53,6 +59,7 @@ class SyncCommand extends Command
 
             if ($source['type'] !== 'repository') {
                 $io->warning("Skipping {$name}: unsupported type '{$source['type']}'");
+
                 continue;
             }
 
@@ -66,37 +73,38 @@ class SyncCommand extends Command
 
     private function syncRepository(string $name, array $source, string $targetPath, SymfonyStyle $io): void
     {
-        $tempDir = sys_get_temp_dir() . '/ai-docs-' . $name . '-' . uniqid();
-        $destDir = rtrim($targetPath, '/') . '/' . $name;
+        $tempDir = sys_get_temp_dir().'/ai-docs-'.$name.'-'.uniqid();
+        $destDir = mb_rtrim($targetPath, '/').'/'.$name;
 
         try {
             $cloneCommand = ['git', 'clone', '--depth', '1'];
-            
+
             if (isset($source['branch'])) {
                 $cloneCommand[] = '--branch';
                 $cloneCommand[] = $source['branch'];
             }
-            
+
             $cloneCommand[] = $source['url'];
             $cloneCommand[] = $tempDir;
-            
+
             $process = new Process($cloneCommand);
             $process->run();
 
-            if (!$process->isSuccessful()) {
-                $io->error("Failed to clone repository: " . $process->getErrorOutput());
+            if (! $process->isSuccessful()) {
+                $io->error('Failed to clone repository: '.$process->getErrorOutput());
+
                 return;
             }
 
             $this->filesystem->remove($destDir);
-            $this->filesystem->mkdir($destDir . '/docs');
+            $this->filesystem->mkdir($destDir.'/docs');
 
             $files = $this->findMatchingFiles($tempDir, $source['files'] ?? ['*.md']);
-            
+
             foreach ($files as $file) {
-                $relativePath = str_replace($tempDir . '/', '', $file);
-                $destFile = $destDir . '/docs/' . $relativePath;
-                
+                $relativePath = str_replace($tempDir.'/', '', $file);
+                $destFile = $destDir.'/docs/'.$relativePath;
+
                 // Ensure the destination directory exists
                 $this->filesystem->mkdir(dirname($destFile));
                 $this->filesystem->copy($file, $destFile);
@@ -104,7 +112,7 @@ class SyncCommand extends Command
 
             $this->createReferenceFile($name, $files, $destDir, $tempDir);
 
-            $io->text("Synced {$name}: " . count($files) . " files");
+            $io->text("Synced {$name}: ".count($files).' files');
 
         } finally {
             if ($this->filesystem->exists($tempDir)) {
@@ -116,20 +124,20 @@ class SyncCommand extends Command
     private function findMatchingFiles(string $dir, array $patterns): array
     {
         $files = [];
-        
-        if (!is_dir($dir)) {
+
+        if (! is_dir($dir)) {
             return $files;
         }
 
-        $iterator = new \RecursiveIteratorIterator(
-            new \RecursiveDirectoryIterator($dir, \RecursiveDirectoryIterator::SKIP_DOTS),
-            \RecursiveIteratorIterator::LEAVES_ONLY
+        $iterator = new RecursiveIteratorIterator(
+            new RecursiveDirectoryIterator($dir, RecursiveDirectoryIterator::SKIP_DOTS),
+            RecursiveIteratorIterator::LEAVES_ONLY
         );
 
         foreach ($iterator as $file) {
             $filePath = $file->getPathname();
             $fileName = $file->getFilename();
-            
+
             foreach ($patterns as $pattern) {
                 if (fnmatch($pattern, $fileName)) {
                     $files[] = $filePath;
@@ -147,27 +155,27 @@ class SyncCommand extends Command
         $content .= "This file contains references to all {$name} documentation files.\n\n";
 
         foreach ($files as $file) {
-            $relativePath = str_replace($tempDir . '/', '', $file);
+            $relativePath = str_replace($tempDir.'/', '', $file);
             $content .= "- [{$relativePath}](docs/{$relativePath})\n";
         }
 
-        $this->filesystem->dumpFile($destDir . "/{$name}.md", $content);
+        $this->filesystem->dumpFile($destDir."/{$name}.md", $content);
     }
 
     private function cleanupObsoleteDirs(string $targetPath, array $sources, SymfonyStyle $io): void
     {
-        $targetDir = rtrim($targetPath, '/');
-        
-        if (!$this->filesystem->exists($targetDir)) {
+        $targetDir = mb_rtrim($targetPath, '/');
+
+        if (! $this->filesystem->exists($targetDir)) {
             return;
         }
 
         $configuredSources = array_keys($sources);
         $existingDirs = [];
 
-        $iterator = new \DirectoryIterator($targetDir);
+        $iterator = new DirectoryIterator($targetDir);
         foreach ($iterator as $fileInfo) {
-            if ($fileInfo->isDot() || !$fileInfo->isDir()) {
+            if ($fileInfo->isDot() || ! $fileInfo->isDir()) {
                 continue;
             }
             $existingDirs[] = $fileInfo->getFilename();
@@ -176,7 +184,7 @@ class SyncCommand extends Command
         $obsoleteDirs = array_diff($existingDirs, $configuredSources);
 
         foreach ($obsoleteDirs as $obsoleteDir) {
-            $dirPath = $targetDir . '/' . $obsoleteDir;
+            $dirPath = $targetDir.'/'.$obsoleteDir;
             $io->text("Removing obsolete documentation: {$obsoleteDir}");
             $this->filesystem->remove($dirPath);
         }
