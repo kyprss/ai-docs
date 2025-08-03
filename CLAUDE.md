@@ -10,6 +10,9 @@ This is a PHP package to provide an easy way to download the latest docs from gi
 - Use short nullable notation: `?string` not `string|null`
 - Always specify `void` return types when methods return nothing
 
+## Git
+
+- NEVER mention anything about claude or claude code in commit messages
 
 ## Project
 
