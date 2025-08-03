@@ -137,6 +137,13 @@ final class SyncCommand extends Command
         foreach ($iterator as $file) {
             $filePath = $file->getPathname();
             $fileName = $file->getFilename();
+            $relativePath = str_replace($dir.'/', '', $filePath);
+            
+            // Skip files in root directory or hidden folders
+            $pathParts = explode('/', $relativePath);
+            if (count($pathParts) === 1 || str_starts_with($pathParts[0], '.')) {
+                continue;
+            }
 
             foreach ($patterns as $pattern) {
                 if (fnmatch($pattern, $fileName)) {
