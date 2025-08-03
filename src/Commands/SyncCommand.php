@@ -168,7 +168,7 @@ final class SyncCommand extends Command
 
         foreach ($files as $file) {
             $relativePath = str_replace($tempDir.'/', '', $file);
-            $content .= "- [{$relativePath}](@docs/{$relativePath})\n";
+            $content .= "- [{$relativePath}](docs/{$relativePath})\n";
         }
 
         $this->filesystem->dumpFile($destDir."/{$name}.md", $content);
