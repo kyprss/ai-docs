@@ -1,7 +1,7 @@
 {
     "name": "kyprss/ai-docs",
     "description": "An easy tool to download the latest documentation from a git repository",
-    "version": "1.0.0-alpha7",
+    "version": "1.0.0-alpha8",
     "type": "library",
     "license": "MIT",
     "require": {

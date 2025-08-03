@@ -3,6 +3,14 @@
 AI Docs is an easy tool to download the latest documentation from a git repository.
 It creates a reference file which you can use in your AI guidelines.
 
+## Installation
+
+Install via Composer:
+
+```bash
+composer require kyprss/ai-docs
+```
+
 ## Usage
 
 ```
