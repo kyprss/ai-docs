@@ -41,7 +41,7 @@ final class InitCommand extends Command
                 'laravel' => [
                     'type' => 'repository',
                     'url' => 'git@github.com:laravel/docs.git',
-                    'branch' => '11.x',
+                    'branch' => '12.x',
                     'files' => ['*.md'],
                 ],
             ],
