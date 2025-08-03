@@ -134,14 +134,19 @@ final class SyncCommand extends Command
             RecursiveIteratorIterator::LEAVES_ONLY
         );
 
+        // Check if a "docs" directory exists
+        $hasDocsDir = is_dir($dir.'/docs');
+
         foreach ($iterator as $file) {
             $filePath = $file->getPathname();
             $fileName = $file->getFilename();
             $relativePath = str_replace($dir.'/', '', $filePath);
             
-            // Skip files in root directory or hidden folders
             $pathParts = explode('/', $relativePath);
-            if (count($pathParts) === 1 || str_starts_with($pathParts[0], '.')) {
+            
+            // Skip files in root directory only if docs directory exists
+            // Always skip hidden folders
+            if (str_starts_with($pathParts[0], '.') || ($hasDocsDir && count($pathParts) === 1)) {
                 continue;
             }
 
