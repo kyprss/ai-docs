@@ -141,9 +141,9 @@ final class SyncCommand extends Command
             $filePath = $file->getPathname();
             $fileName = $file->getFilename();
             $relativePath = str_replace($dir.'/', '', $filePath);
-            
+
             $pathParts = explode('/', $relativePath);
-            
+
             // Skip files in root directory only if docs directory exists
             // Always skip hidden folders
             if (str_starts_with($pathParts[0], '.') || ($hasDocsDir && count($pathParts) === 1)) {
