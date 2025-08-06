@@ -6,18 +6,23 @@ namespace Kyprss\AiDocs;
 
 use Kyprss\AiDocs\Commands\InitCommand;
 use Kyprss\AiDocs\Commands\SyncCommand;
+use Kyprss\AiDocs\Container\ContainerBuilder;
 use Symfony\Component\Console\Application as SymfonyApplication;
-use Symfony\Component\Filesystem\Filesystem;
+use Symfony\Component\DependencyInjection\ContainerInterface;
 
 final class Application extends SymfonyApplication
 {
+    private readonly ContainerInterface $container;
+
     public function __construct()
     {
         parent::__construct('AI Docs', '1.0.0');
 
+        $this->container = ContainerBuilder::build();
+
         $this->addCommands([
-            new InitCommand(),
-            new SyncCommand(new Filesystem()),
+            $this->container->get(InitCommand::class),
+            $this->container->get(SyncCommand::class),
         ]);
     }
 }

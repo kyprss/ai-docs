@@ -4,15 +4,15 @@ declare(strict_types=1);
 
 namespace Kyprss\AiDocs\Commands;
 
-use DirectoryIterator;
-use RecursiveDirectoryIterator;
-use RecursiveIteratorIterator;
+use Kyprss\AiDocs\Actions\Config\LoadConfigurationAction;
+use Kyprss\AiDocs\Actions\Config\ValidateConfigurationAction;
+use Kyprss\AiDocs\Actions\Sync\SyncAllSourcesAction;
+use Kyprss\AiDocs\Exceptions\AiDocsException;
+use Kyprss\AiDocs\Exceptions\ConfigurationException;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
-use Symfony\Component\Filesystem\Filesystem;
-use Symfony\Component\Process\Process;
 
 final class SyncCommand extends Command
 {
@@ -20,185 +20,51 @@ final class SyncCommand extends Command
 
     protected static $defaultDescription = 'Sync documentation from configured sources';
 
-    private Filesystem $filesystem;
-
-    public function __construct(Filesystem $filesystem)
-    {
+    public function __construct(
+        private readonly LoadConfigurationAction $loadConfigAction,
+        private readonly ValidateConfigurationAction $validateConfigAction,
+        private readonly SyncAllSourcesAction $syncAllSourcesAction
+    ) {
         parent::__construct('sync');
         $this->setDescription('Sync documentation from configured sources');
-        $this->filesystem = $filesystem;
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $io = new SymfonyStyle($input, $output);
 
-        $configPath = getcwd().'/ai-docs.json';
-
-        if (! file_exists($configPath)) {
-            $io->error('Configuration file ai-docs.json not found. Run "ai-docs init" first.');
-
-            return Command::FAILURE;
-        }
-
-        $config = json_decode(file_get_contents($configPath), true);
-
-        if (! $config) {
-            $io->error('Invalid configuration file.');
-
-            return Command::FAILURE;
-        }
-
-        $targetPath = $config['config']['target_path'] ?? '.ai/docs/';
-        $sources = $config['sources'] ?? [];
-
-        $this->cleanupObsoleteDirs($targetPath, $sources, $io);
-
-        foreach ($sources as $name => $source) {
-            $io->section("Syncing: {$name}");
-
-            if ($source['type'] !== 'repository') {
-                $io->warning("Skipping {$name}: unsupported type '{$source['type']}'");
-
-                continue;
-            }
-
-            $this->syncRepository($name, $source, $targetPath, $io);
-        }
-
-        $io->success('All sources synced successfully.');
-
-        return Command::SUCCESS;
-    }
-
-    private function syncRepository(string $name, array $source, string $targetPath, SymfonyStyle $io): void
-    {
-        $tempDir = sys_get_temp_dir().'/ai-docs-'.$name.'-'.uniqid();
-        $destDir = mb_rtrim($targetPath, '/').'/'.$name;
-
         try {
-            $cloneCommand = ['git', 'clone', '--depth', '1'];
+            $config = $this->loadConfigAction->execute();
+            $this->validateConfigAction->execute($config);
 
-            if (isset($source['branch'])) {
-                $cloneCommand[] = '--branch';
-                $cloneCommand[] = $source['branch'];
-            }
+            $results = $this->syncAllSourcesAction->execute($config);
 
-            $cloneCommand[] = $source['url'];
-            $cloneCommand[] = $tempDir;
+            foreach ($results as $result) {
+                $io->section("Syncing: {$result->name}");
 
-            $process = new Process($cloneCommand);
-            $process->run();
-
-            if (! $process->isSuccessful()) {
-                $io->error('Failed to clone repository: '.$process->getErrorOutput());
-
-                return;
-            }
-
-            $this->filesystem->remove($destDir);
-            $this->filesystem->mkdir($destDir.'/docs');
-
-            $files = $this->findMatchingFiles($tempDir, $source['files'] ?? ['*.md']);
-
-            foreach ($files as $file) {
-                $relativePath = str_replace($tempDir.'/', '', $file);
-                $destFile = $destDir.'/docs/'.$relativePath;
-
-                // Ensure the destination directory exists
-                $this->filesystem->mkdir(dirname($destFile));
-                $this->filesystem->copy($file, $destFile);
-            }
-
-            $this->createReferenceFile($name, $files, $destDir, $tempDir);
-
-            $io->text("Synced {$name}: ".count($files).' files');
-
-        } finally {
-            if ($this->filesystem->exists($tempDir)) {
-                $this->filesystem->remove($tempDir);
-            }
-        }
-    }
-
-    private function findMatchingFiles(string $dir, array $patterns): array
-    {
-        $files = [];
-
-        if (! is_dir($dir)) {
-            return $files;
-        }
-
-        $iterator = new RecursiveIteratorIterator(
-            new RecursiveDirectoryIterator($dir, RecursiveDirectoryIterator::SKIP_DOTS),
-            RecursiveIteratorIterator::LEAVES_ONLY
-        );
-
-        // Check if a "docs" directory exists
-        $hasDocsDir = is_dir($dir.'/docs');
-
-        foreach ($iterator as $file) {
-            $filePath = $file->getPathname();
-            $fileName = $file->getFilename();
-            $relativePath = str_replace($dir.'/', '', $filePath);
-
-            $pathParts = explode('/', $relativePath);
-
-            // Skip files in root directory only if docs directory exists
-            // Always skip hidden folders
-            if (str_starts_with($pathParts[0], '.') || ($hasDocsDir && count($pathParts) === 1)) {
-                continue;
-            }
-
-            foreach ($patterns as $pattern) {
-                if (fnmatch($pattern, $fileName)) {
-                    $files[] = $filePath;
-                    break; // Avoid adding the same file multiple times if it matches multiple patterns
+                if ($result->success) {
+                    $io->text("Synced {$result->name}: {$result->getFileCount()} files");
+                } else {
+                    $io->warning("Failed to sync {$result->name}: {$result->error}");
                 }
             }
-        }
 
-        return array_unique($files);
-    }
+            $io->success('All sources synced successfully.');
 
-    private function createReferenceFile(string $name, array $files, string $destDir, string $tempDir): void
-    {
-        $content = "# {$name} Documentation\n\n";
-        $content .= "This file contains references to all {$name} documentation files.\n\n";
+            return Command::SUCCESS;
 
-        foreach ($files as $file) {
-            $relativePath = str_replace($tempDir.'/', '', $file);
-            $content .= "- [{$relativePath}](docs/{$relativePath})\n";
-        }
-
-        $this->filesystem->dumpFile($destDir."/{$name}.md", $content);
-    }
-
-    private function cleanupObsoleteDirs(string $targetPath, array $sources, SymfonyStyle $io): void
-    {
-        $targetDir = mb_rtrim($targetPath, '/');
-
-        if (! $this->filesystem->exists($targetDir)) {
-            return;
-        }
-
-        $configuredSources = array_keys($sources);
-        $existingDirs = [];
-
-        $iterator = new DirectoryIterator($targetDir);
-        foreach ($iterator as $fileInfo) {
-            if ($fileInfo->isDot() || ! $fileInfo->isDir()) {
-                continue;
+        } catch (ConfigurationException $e) {
+            if (str_contains($e->getMessage(), 'not found')) {
+                $io->error('Configuration file ai-docs.json not found. Run "ai-docs init" first.');
+            } else {
+                $io->error($e->getMessage());
             }
-            $existingDirs[] = $fileInfo->getFilename();
-        }
 
-        $obsoleteDirs = array_diff($existingDirs, $configuredSources);
+            return Command::FAILURE;
+        } catch (AiDocsException $e) {
+            $io->error($e->getMessage());
 
-        foreach ($obsoleteDirs as $obsoleteDir) {
-            $dirPath = $targetDir.'/'.$obsoleteDir;
-            $io->text("Removing obsolete documentation: {$obsoleteDir}");
-            $this->filesystem->remove($dirPath);
+            return Command::FAILURE;
         }
     }
 }

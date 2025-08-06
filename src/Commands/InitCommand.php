@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace Kyprss\AiDocs\Commands;
 
+use Kyprss\AiDocs\Actions\Config\CreateConfigurationAction;
+use Kyprss\AiDocs\Actions\Config\LoadConfigurationAction;
+use Kyprss\AiDocs\Exceptions\AiDocsException;
+use Kyprss\AiDocs\Exceptions\ConfigurationException;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
@@ -15,8 +19,10 @@ final class InitCommand extends Command
 
     protected static $defaultDescription = 'Initialize AI Docs configuration';
 
-    public function __construct()
-    {
+    public function __construct(
+        private readonly LoadConfigurationAction $loadConfigAction,
+        private readonly CreateConfigurationAction $createConfigAction
+    ) {
         parent::__construct('init');
         $this->setDescription('Initialize AI Docs configuration');
     }
@@ -25,36 +31,25 @@ final class InitCommand extends Command
     {
         $io = new SymfonyStyle($input, $output);
 
-        $configPath = getcwd().'/ai-docs.json';
-
-        if (file_exists($configPath)) {
+        if ($this->loadConfigAction->configExists()) {
             $io->warning('Configuration file ai-docs.json already exists.');
 
             return Command::SUCCESS;
         }
 
-        $config = [
-            'config' => [
-                'target_path' => '.ai/docs/',
-            ],
-            'sources' => [
-                'laravel' => [
-                    'type' => 'repository',
-                    'url' => 'git@github.com:laravel/docs.git',
-                    'branch' => '12.x',
-                    'files' => ['*.md'],
-                ],
-            ],
-        ];
-
-        if (file_put_contents($configPath, json_encode($config, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)) !== false) {
+        try {
+            $this->createConfigAction->execute();
             $io->success('Configuration file ai-docs.json created successfully.');
-        } else {
-            $io->error('Failed to create configuration file.');
+
+            return Command::SUCCESS;
+        } catch (ConfigurationException $e) {
+            $io->error($e->getMessage());
+
+            return Command::FAILURE;
+        } catch (AiDocsException $e) {
+            $io->error($e->getMessage());
 
             return Command::FAILURE;
         }
-
-        return Command::SUCCESS;
     }
 }
