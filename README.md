@@ -53,5 +53,4 @@ This command will sync all given sources by doing the following steps:
 
 - downloading the latest files from the git repo to temp directory
 - matching all files with the given patterns
-- copy the found files to `{target_path}/{name}/docs`
-- creates a reference file `{target_path}/{name}/{name}.md` which links to the files
+- copy the found files to `{target_path}/{name}/`

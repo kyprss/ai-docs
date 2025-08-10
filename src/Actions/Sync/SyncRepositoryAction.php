@@ -6,7 +6,6 @@ namespace Kyprss\AiDocs\Actions\Sync;
 
 use Exception;
 use Kyprss\AiDocs\Actions\Documentation\CopyDocumentationFilesAction;
-use Kyprss\AiDocs\Actions\Documentation\CreateReferenceFileAction;
 use Kyprss\AiDocs\Actions\Repository\CleanupTempDirectoryAction;
 use Kyprss\AiDocs\Actions\Repository\CloneRepositoryAction;
 use Kyprss\AiDocs\Actions\Repository\FindMatchingFilesAction;
@@ -21,7 +20,6 @@ final class SyncRepositoryAction
         private readonly CloneRepositoryAction $cloneRepositoryAction,
         private readonly FindMatchingFilesAction $findMatchingFilesAction,
         private readonly CopyDocumentationFilesAction $copyDocumentationFilesAction,
-        private readonly CreateReferenceFileAction $createReferenceFileAction,
         private readonly CleanupTempDirectoryAction $cleanupTempDirectoryAction,
         private readonly FileSystemService $fileSystemService
     ) {}
@@ -43,8 +41,6 @@ final class SyncRepositoryAction
             $this->fileSystemService->remove($destDir);
 
             $this->copyDocumentationFilesAction->execute($files, $tempDir, $destDir);
-
-            $this->createReferenceFileAction->execute($source->name, $files, $destDir, $tempDir);
 
             return SyncResultData::success($source->name, $files);
 

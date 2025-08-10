@@ -18,11 +18,11 @@ final class CopyDocumentationFilesAction
      */
     public function execute(array $files, string $sourceDir, string $destDir): void
     {
-        $this->fileSystemService->mkdir($destDir.'/docs');
+        $this->fileSystemService->mkdir($destDir);
 
         foreach ($files as $file) {
             $relativePath = str_replace($sourceDir.'/', '', $file);
-            $destFile = $destDir.'/docs/'.$relativePath;
+            $destFile = $destDir.'/'.$relativePath;
 
             $this->fileSystemService->copy($file, $destFile);
         }
