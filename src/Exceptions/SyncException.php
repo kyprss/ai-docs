@@ -35,4 +35,9 @@ final class SyncException extends AiDocsException
     {
         return new self("Failed to cleanup temporary directory: {$path}");
     }
+
+    public static function unsupportedType(string $type): self
+    {
+        return new self("Unsupported source type: {$type}");
+    }
 }

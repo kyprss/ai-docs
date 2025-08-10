@@ -38,6 +38,10 @@ The file will be look like this:
             "url": "git@github.com:laravel/docs.git",
             'branch' => '12.x',
             "files": ["*.md"]
+        },
+        "plentyone-rest-api": {
+            "type": "openapi:3",
+            "url": "https://raw.githubusercontent.com/plentymarkets/api-doc/refs/heads/master/plentymarkets/openApiV3/openApiV3WithExamples.json"
         }
     }
 }
