@@ -45,6 +45,6 @@ final class SyncAllSourcesAction
 
     private function isOpenApiType(string $type): bool
     {
-        return in_array($type, ['openapi:3', 'openapi:2'], true);
+        return $type === 'openapi3';
     }
 }

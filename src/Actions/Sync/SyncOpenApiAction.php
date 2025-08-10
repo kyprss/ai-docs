@@ -78,7 +78,7 @@ final class SyncOpenApiAction
 
     private function isOpenApiType(string $type): bool
     {
-        return in_array($type, ['openapi:3', 'openapi:2'], true);
+        return $type === 'openapi3';
     }
 
     private function downloadFile(string $url, string $destination): void
@@ -97,7 +97,7 @@ final class SyncOpenApiAction
         // Convert path to safe filename
         $filename = trim($path, '/');
         $filename = str_replace('/', '_', $filename);
-        $filename = preg_replace('/[^a-zA-Z0-9_\-]/', '_', $filename);
+        $filename = preg_replace('/[^a-zA-Z0-9_\-{}]/', '_', $filename);
         $filename = preg_replace('/_+/', '_', $filename);
         
         // Add .json extension
